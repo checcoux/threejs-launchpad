@@ -1,0 +1,247 @@
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>lauchpad</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				margin: 0px;
+				background-color: #ffcc00;
+				color: #333;
+			}
+			a {
+				color: #08f;
+			}
+		</style>
+	</head>
+<body>
+
+	<script type="module">
+
+		import * as THREE from './build/three.module.js';
+
+		import { OrbitControls } from './lib/OrbitControls.js';
+
+		var renderer, scene, camera;
+		var controls, group;
+		var listener;
+		var pulseTimer, timer;
+
+		init();
+		animate();
+
+		function init() {
+
+
+			// init renderer
+			renderer = new THREE.WebGLRenderer( { antialias: true } );
+			renderer.setPixelRatio( window.devicePixelRatio );
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			document.body.appendChild( renderer.domElement );
+
+			// init scene
+			scene = new THREE.Scene();
+			scene.background = new THREE.Color( 0xffcc00 );
+
+			group = new THREE.Group();
+			scene.add( group );
+
+			// init camera
+			camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 1000 );
+			camera.position.set( 15, 15, 15 );
+			camera.lookAt( scene.position );
+
+			controls = new OrbitControls( camera, renderer.domElement );
+			controls.enableRotate = true;
+
+			// init sound
+			listener = new THREE.AudioListener();
+			camera.add( listener );
+
+			// add sprites
+
+			var sprite = new THREE.Sprite( new THREE.SpriteMaterial( { color: '#ff6666' } ) );
+			sprite.position.set( 6, 5, 5 );
+			sprite.scale.set( 2, 5, 1 );
+			group.add( sprite );
+
+			var sprite = new THREE.Sprite( new THREE.SpriteMaterial( { color: '#ff6666', sizeAttenuation: false } ) );
+			sprite.material.rotation = Math.PI / 3 * 4;
+			sprite.position.set( 8, - 2, 2 );
+			sprite.center.set( 0.5, 0 );
+			sprite.scale.set( .1, .5, .1 );
+			group.add( sprite );
+
+			var group2 = new THREE.Object3D();
+			group2.scale.set( 1, 2, 1 );
+			group2.position.set( - 5, 0, 0 );
+			group2.rotation.set( Math.PI / 2, 0, 0 );
+			group.add( group2 );
+
+			var sprite = new THREE.Sprite( new THREE.SpriteMaterial( { color: '#ff6666' } ) );
+			sprite.position.set( -18, -2, 10 );
+			sprite.scale.set( 14, 4, 3 );
+			sprite.center.set( - 0.1, 0 );
+			sprite.material.rotation = Math.PI / 18;
+			group2.add( sprite );
+
+			var sprite = new THREE.Sprite( new THREE.SpriteMaterial( { color: '#ff6666' } ) );
+			sprite.position.set( 0, 5, 15 );
+			sprite.scale.set( 10, 2, 10 );
+			sprite.center.set( 0.1, 0 );
+			sprite.material.rotation = Math.PI / 19;
+			group2.add( sprite );
+
+			var group3 = new THREE.Object3D();
+			group2.scale.set( 1, 2, 1 );
+			group2.position.set( 0, 7, 0 );
+			group2.rotation.set( Math.PI / 2, 0, 0 );
+			group.add( group3 );
+
+			var sprite = new THREE.Sprite( new THREE.SpriteMaterial( { color: '#ff6666' } ) );
+			sprite.position.set( -8	, -6, 14 );
+			sprite.scale.set( 10, 2, 3 );
+			sprite.center.set( - 0.1, 0 );
+			sprite.material.rotation = Math.PI / 6;
+			group3.add( sprite );
+
+
+			var sprite = new THREE.Sprite( new THREE.SpriteMaterial( { color: '#ff6666' } ) );
+			sprite.position.set( 10, 1, 1 );
+			sprite.scale.set( 10, 3, 10 );
+			sprite.center.set( 0.1, 0 );
+			sprite.material.rotation = Math.PI / 6;
+			group3.add( sprite );
+
+			window.addEventListener( 'resize', onWindowResize, false );
+			window.addEventListener( "click", onDocumentMouseMove, false );
+
+		}
+
+		function animate() {
+
+			renderer.render( scene, camera );
+			requestAnimationFrame( animate );
+
+		}
+
+		function onWindowResize() {
+
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+
+			renderer.setSize( window.innerWidth, window.innerHeight );
+
+		}
+
+		var selectedObject = null;
+		var activeObjects = [];
+		var playingIds = [];
+
+		function onDocumentMouseMove( event ) {
+
+			event.preventDefault();
+
+			var intersects = getIntersects( event.layerX, event.layerY );
+			if ( intersects.length > 0 ) {
+
+				var res = intersects.filter( function ( res ) {
+
+					return res && res.object;
+
+				} )[ 0 ];
+
+				if ( res && res.object ) {
+
+					selectedObject = res.object;
+					if (activeObjects.includes(selectedObject.id)){
+						//stop
+						console.log("removing "+ selectedObject.id);
+						stop(playingIds[selectedObject.id]);
+						selectedObject.material.color.set( '#ff6666' );
+						activeObjects.splice(activeObjects.indexOf(selectedObject.id), 1);
+						console.log(activeObjects);
+						if (activeObjects.length == 0) {
+							//stop pulse
+							window.clearInterval(timer);
+						}
+					} else {
+						//play
+						console.log("playing "+selectedObject.id);
+						selectedObject.material.color.set( '#66cccc' );
+						activeObjects.push(selectedObject.id);
+						console.log(activeObjects);
+						var id = sound(selectedObject.id);
+						playingIds[selectedObject.id] = id;
+						if (activeObjects.length == 1) {
+							//start pulse
+							timer = window.setInterval(pulse, 931);
+						}
+					}
+				}
+
+			}
+
+		}
+
+		var raycaster = new THREE.Raycaster();
+		var mouseVector = new THREE.Vector3();
+
+		function getIntersects( x, y ) {
+
+			x = ( x / window.innerWidth ) * 2 - 1;
+			y = - ( y / window.innerHeight ) * 2 + 1;
+
+			mouseVector.set( x, y, 0.5 );
+			raycaster.setFromCamera( mouseVector, camera );
+
+			return raycaster.intersectObject( group, true );
+
+		}
+
+		function pulse() {
+			scene.background = new THREE.Color( 0xcc0066 );
+			pulseTimer = setTimeout (pulseBack, 300);
+		}
+
+		function pulseBack () {
+			scene.background = new THREE.Color( 0xffcc00 );
+		}
+
+		var playing = [];
+
+		function sound (id) {
+			var sounds = {
+				'11': 'audio/piano.wav',
+				'12': 'audio/vox.wav',
+				'14': 'audio/guitar.wav',
+				'15': 'audio/drums.wav',
+				'17': 'audio/bass.wav',
+				'18': 'audio/organ.wav',
+				'20': 'audio/vox.wav',
+				'21': 'audio/piano.wav',
+			}
+			var sound = new THREE.Audio( listener );
+			playing.push(sound);
+			var audioLoader = new THREE.AudioLoader();
+			audioLoader.load( sounds[id], function( buffer ) {
+				sound.setBuffer( buffer );
+				sound.setLoop( true );
+				sound.setVolume( 0.5 );
+				sound.play();
+			});
+			return sound.uuid;
+		}
+
+		function stop (id) {
+			var sound = playing.find((item) => {
+				return item.uuid == id;
+			});
+			console.log(sound);
+			sound.stop();
+		}
+	</script>
+</body>
+</html>
